@@ -7,9 +7,11 @@ import (
 	"net/url"
 	"os"
 	"os/user"
+	"path/filepath"
 
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
+	"golang.org/x/crypto/ssh/knownhosts"
 )
 
 // BastionDialer returns a bastion
@@ -19,7 +21,15 @@ func BastionDialer(
 	auths := []ssh.AuthMethod{}
 	auths = append(auths, agentAuth()...)
 
-	config := &ssh.ClientConfig{}
+	knownhostsPath := filepath.Join(os.Getenv("HOME"), ".ssh/known_hosts")
+	hostKeyCallback, err := knownhosts.New(knownhostsPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	config := &ssh.ClientConfig{
+		HostKeyCallback: hostKeyCallback,
+	}
 	config.SetDefaults()
 
 	u, err := url.Parse("//" + bastionHost)
@@ -37,7 +47,7 @@ func BastionDialer(
 
 	_, _, err = net.SplitHostPort(u.Host)
 	if err != nil {
-		u.Host += ":ssh"
+		u.Host += ":22"
 	}
 
 	config.User = u.User.Username()
